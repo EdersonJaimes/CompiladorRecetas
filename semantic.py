@@ -1,14 +1,20 @@
 from symbols import *
 from errors import SemanticError
+from symbol_table import SymbolTable
 
 
 class SemanticAnalyzer:
 
-    def validar_agregar(
-        self,
-        ingrediente,
-        unidad
-    ):
+    def __init__(self):
+
+        self.tabla = SymbolTable()
+
+    def validar_agregar(self, ingrediente, unidad):
+        self.tabla.registrar(
+            ingrediente,
+            unidad,
+        )
+    
 
         ingrediente = ingrediente.upper()
 

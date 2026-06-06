@@ -1,0 +1,363 @@
+Created by PLY version 3.11 (http://www.dabeaz.com/ply)
+
+Grammar
+
+Rule 0     S' -> programa
+Rule 1     programa -> instrucciones
+Rule 2     instrucciones -> instrucciones instruccion
+Rule 3     instrucciones -> instruccion
+Rule 4     instruccion -> AGREGAR IDENTIFICADOR NUMERO unidad PUNTO_COMA
+Rule 5     instruccion -> PRECALENTAR NUMERO C PUNTO_COMA
+Rule 6     instruccion -> REPETIR NUMERO VECES accion PUNTO_COMA
+Rule 7     instruccion -> IDENTIFICADOR IGUAL IDENTIFICADOR PUNTO_COMA
+Rule 8     unidad -> ML
+Rule 9     unidad -> GR
+Rule 10    unidad -> UN
+Rule 11    accion -> MEZCLAR
+Rule 12    accion -> BATIR
+Rule 13    accion -> HORNEAR
+Rule 14    accion -> DECORAR
+Rule 15    accion -> ENGRASAR
+Rule 16    accion -> VERTER
+Rule 17    accion -> ENFRIAR
+Rule 18    accion -> CERNIR
+
+Terminals, with rules where they appear
+
+AGREGAR              : 4
+BATIR                : 12
+C                    : 5
+CERNIR               : 18
+DECORAR              : 14
+ENFRIAR              : 17
+ENGRASAR             : 15
+GR                   : 9
+HORNEAR              : 13
+IDENTIFICADOR        : 4 7 7
+IGUAL                : 7
+MEZCLAR              : 11
+ML                   : 8
+NUMERO               : 4 5 6
+PRECALENTAR          : 5
+PUNTO_COMA           : 4 5 6 7
+REPETIR              : 6
+UN                   : 10
+VECES                : 6
+VERTER               : 16
+error                : 
+
+Nonterminals, with rules where they appear
+
+accion               : 6
+instruccion          : 2 3
+instrucciones        : 1 2
+programa             : 0
+unidad               : 4
+
+Parsing method: LALR
+
+state 0
+
+    (0) S' -> . programa
+    (1) programa -> . instrucciones
+    (2) instrucciones -> . instrucciones instruccion
+    (3) instrucciones -> . instruccion
+    (4) instruccion -> . AGREGAR IDENTIFICADOR NUMERO unidad PUNTO_COMA
+    (5) instruccion -> . PRECALENTAR NUMERO C PUNTO_COMA
+    (6) instruccion -> . REPETIR NUMERO VECES accion PUNTO_COMA
+    (7) instruccion -> . IDENTIFICADOR IGUAL IDENTIFICADOR PUNTO_COMA
+
+    AGREGAR         shift and go to state 4
+    PRECALENTAR     shift and go to state 6
+    REPETIR         shift and go to state 7
+    IDENTIFICADOR   shift and go to state 5
+
+    programa                       shift and go to state 1
+    instrucciones                  shift and go to state 2
+    instruccion                    shift and go to state 3
+
+state 1
+
+    (0) S' -> programa .
+
+
+
+state 2
+
+    (1) programa -> instrucciones .
+    (2) instrucciones -> instrucciones . instruccion
+    (4) instruccion -> . AGREGAR IDENTIFICADOR NUMERO unidad PUNTO_COMA
+    (5) instruccion -> . PRECALENTAR NUMERO C PUNTO_COMA
+    (6) instruccion -> . REPETIR NUMERO VECES accion PUNTO_COMA
+    (7) instruccion -> . IDENTIFICADOR IGUAL IDENTIFICADOR PUNTO_COMA
+
+    $end            reduce using rule 1 (programa -> instrucciones .)
+    AGREGAR         shift and go to state 4
+    PRECALENTAR     shift and go to state 6
+    REPETIR         shift and go to state 7
+    IDENTIFICADOR   shift and go to state 5
+
+    instruccion                    shift and go to state 8
+
+state 3
+
+    (3) instrucciones -> instruccion .
+
+    AGREGAR         reduce using rule 3 (instrucciones -> instruccion .)
+    PRECALENTAR     reduce using rule 3 (instrucciones -> instruccion .)
+    REPETIR         reduce using rule 3 (instrucciones -> instruccion .)
+    IDENTIFICADOR   reduce using rule 3 (instrucciones -> instruccion .)
+    $end            reduce using rule 3 (instrucciones -> instruccion .)
+
+
+state 4
+
+    (4) instruccion -> AGREGAR . IDENTIFICADOR NUMERO unidad PUNTO_COMA
+
+    IDENTIFICADOR   shift and go to state 9
+
+
+state 5
+
+    (7) instruccion -> IDENTIFICADOR . IGUAL IDENTIFICADOR PUNTO_COMA
+
+    IGUAL           shift and go to state 10
+
+
+state 6
+
+    (5) instruccion -> PRECALENTAR . NUMERO C PUNTO_COMA
+
+    NUMERO          shift and go to state 11
+
+
+state 7
+
+    (6) instruccion -> REPETIR . NUMERO VECES accion PUNTO_COMA
+
+    NUMERO          shift and go to state 12
+
+
+state 8
+
+    (2) instrucciones -> instrucciones instruccion .
+
+    AGREGAR         reduce using rule 2 (instrucciones -> instrucciones instruccion .)
+    PRECALENTAR     reduce using rule 2 (instrucciones -> instrucciones instruccion .)
+    REPETIR         reduce using rule 2 (instrucciones -> instrucciones instruccion .)
+    IDENTIFICADOR   reduce using rule 2 (instrucciones -> instrucciones instruccion .)
+    $end            reduce using rule 2 (instrucciones -> instrucciones instruccion .)
+
+
+state 9
+
+    (4) instruccion -> AGREGAR IDENTIFICADOR . NUMERO unidad PUNTO_COMA
+
+    NUMERO          shift and go to state 13
+
+
+state 10
+
+    (7) instruccion -> IDENTIFICADOR IGUAL . IDENTIFICADOR PUNTO_COMA
+
+    IDENTIFICADOR   shift and go to state 14
+
+
+state 11
+
+    (5) instruccion -> PRECALENTAR NUMERO . C PUNTO_COMA
+
+    C               shift and go to state 15
+
+
+state 12
+
+    (6) instruccion -> REPETIR NUMERO . VECES accion PUNTO_COMA
+
+    VECES           shift and go to state 16
+
+
+state 13
+
+    (4) instruccion -> AGREGAR IDENTIFICADOR NUMERO . unidad PUNTO_COMA
+    (8) unidad -> . ML
+    (9) unidad -> . GR
+    (10) unidad -> . UN
+
+    ML              shift and go to state 18
+    GR              shift and go to state 19
+    UN              shift and go to state 20
+
+    unidad                         shift and go to state 17
+
+state 14
+
+    (7) instruccion -> IDENTIFICADOR IGUAL IDENTIFICADOR . PUNTO_COMA
+
+    PUNTO_COMA      shift and go to state 21
+
+
+state 15
+
+    (5) instruccion -> PRECALENTAR NUMERO C . PUNTO_COMA
+
+    PUNTO_COMA      shift and go to state 22
+
+
+state 16
+
+    (6) instruccion -> REPETIR NUMERO VECES . accion PUNTO_COMA
+    (11) accion -> . MEZCLAR
+    (12) accion -> . BATIR
+    (13) accion -> . HORNEAR
+    (14) accion -> . DECORAR
+    (15) accion -> . ENGRASAR
+    (16) accion -> . VERTER
+    (17) accion -> . ENFRIAR
+    (18) accion -> . CERNIR
+
+    MEZCLAR         shift and go to state 24
+    BATIR           shift and go to state 25
+    HORNEAR         shift and go to state 26
+    DECORAR         shift and go to state 27
+    ENGRASAR        shift and go to state 28
+    VERTER          shift and go to state 29
+    ENFRIAR         shift and go to state 30
+    CERNIR          shift and go to state 31
+
+    accion                         shift and go to state 23
+
+state 17
+
+    (4) instruccion -> AGREGAR IDENTIFICADOR NUMERO unidad . PUNTO_COMA
+
+    PUNTO_COMA      shift and go to state 32
+
+
+state 18
+
+    (8) unidad -> ML .
+
+    PUNTO_COMA      reduce using rule 8 (unidad -> ML .)
+
+
+state 19
+
+    (9) unidad -> GR .
+
+    PUNTO_COMA      reduce using rule 9 (unidad -> GR .)
+
+
+state 20
+
+    (10) unidad -> UN .
+
+    PUNTO_COMA      reduce using rule 10 (unidad -> UN .)
+
+
+state 21
+
+    (7) instruccion -> IDENTIFICADOR IGUAL IDENTIFICADOR PUNTO_COMA .
+
+    AGREGAR         reduce using rule 7 (instruccion -> IDENTIFICADOR IGUAL IDENTIFICADOR PUNTO_COMA .)
+    PRECALENTAR     reduce using rule 7 (instruccion -> IDENTIFICADOR IGUAL IDENTIFICADOR PUNTO_COMA .)
+    REPETIR         reduce using rule 7 (instruccion -> IDENTIFICADOR IGUAL IDENTIFICADOR PUNTO_COMA .)
+    IDENTIFICADOR   reduce using rule 7 (instruccion -> IDENTIFICADOR IGUAL IDENTIFICADOR PUNTO_COMA .)
+    $end            reduce using rule 7 (instruccion -> IDENTIFICADOR IGUAL IDENTIFICADOR PUNTO_COMA .)
+
+
+state 22
+
+    (5) instruccion -> PRECALENTAR NUMERO C PUNTO_COMA .
+
+    AGREGAR         reduce using rule 5 (instruccion -> PRECALENTAR NUMERO C PUNTO_COMA .)
+    PRECALENTAR     reduce using rule 5 (instruccion -> PRECALENTAR NUMERO C PUNTO_COMA .)
+    REPETIR         reduce using rule 5 (instruccion -> PRECALENTAR NUMERO C PUNTO_COMA .)
+    IDENTIFICADOR   reduce using rule 5 (instruccion -> PRECALENTAR NUMERO C PUNTO_COMA .)
+    $end            reduce using rule 5 (instruccion -> PRECALENTAR NUMERO C PUNTO_COMA .)
+
+
+state 23
+
+    (6) instruccion -> REPETIR NUMERO VECES accion . PUNTO_COMA
+
+    PUNTO_COMA      shift and go to state 33
+
+
+state 24
+
+    (11) accion -> MEZCLAR .
+
+    PUNTO_COMA      reduce using rule 11 (accion -> MEZCLAR .)
+
+
+state 25
+
+    (12) accion -> BATIR .
+
+    PUNTO_COMA      reduce using rule 12 (accion -> BATIR .)
+
+
+state 26
+
+    (13) accion -> HORNEAR .
+
+    PUNTO_COMA      reduce using rule 13 (accion -> HORNEAR .)
+
+
+state 27
+
+    (14) accion -> DECORAR .
+
+    PUNTO_COMA      reduce using rule 14 (accion -> DECORAR .)
+
+
+state 28
+
+    (15) accion -> ENGRASAR .
+
+    PUNTO_COMA      reduce using rule 15 (accion -> ENGRASAR .)
+
+
+state 29
+
+    (16) accion -> VERTER .
+
+    PUNTO_COMA      reduce using rule 16 (accion -> VERTER .)
+
+
+state 30
+
+    (17) accion -> ENFRIAR .
+
+    PUNTO_COMA      reduce using rule 17 (accion -> ENFRIAR .)
+
+
+state 31
+
+    (18) accion -> CERNIR .
+
+    PUNTO_COMA      reduce using rule 18 (accion -> CERNIR .)
+
+
+state 32
+
+    (4) instruccion -> AGREGAR IDENTIFICADOR NUMERO unidad PUNTO_COMA .
+
+    AGREGAR         reduce using rule 4 (instruccion -> AGREGAR IDENTIFICADOR NUMERO unidad PUNTO_COMA .)
+    PRECALENTAR     reduce using rule 4 (instruccion -> AGREGAR IDENTIFICADOR NUMERO unidad PUNTO_COMA .)
+    REPETIR         reduce using rule 4 (instruccion -> AGREGAR IDENTIFICADOR NUMERO unidad PUNTO_COMA .)
+    IDENTIFICADOR   reduce using rule 4 (instruccion -> AGREGAR IDENTIFICADOR NUMERO unidad PUNTO_COMA .)
+    $end            reduce using rule 4 (instruccion -> AGREGAR IDENTIFICADOR NUMERO unidad PUNTO_COMA .)
+
+
+state 33
+
+    (6) instruccion -> REPETIR NUMERO VECES accion PUNTO_COMA .
+
+    AGREGAR         reduce using rule 6 (instruccion -> REPETIR NUMERO VECES accion PUNTO_COMA .)
+    PRECALENTAR     reduce using rule 6 (instruccion -> REPETIR NUMERO VECES accion PUNTO_COMA .)
+    REPETIR         reduce using rule 6 (instruccion -> REPETIR NUMERO VECES accion PUNTO_COMA .)
+    IDENTIFICADOR   reduce using rule 6 (instruccion -> REPETIR NUMERO VECES accion PUNTO_COMA .)
+    $end            reduce using rule 6 (instruccion -> REPETIR NUMERO VECES accion PUNTO_COMA .)
+

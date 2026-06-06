@@ -3,6 +3,7 @@ import ply.yacc as yacc
 from lexer_ply import tokens
 from semantic import SemanticAnalyzer
 from intermediate_code import IntermediateCodeGenerator
+from ast_node import ASTNode
 
 
 semantic = SemanticAnalyzer()

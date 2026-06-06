@@ -51,7 +51,6 @@ REPETIR 1 VECES ENFRIAR;
 REPETIR 2 VECES DECORAR;
 """
 
-
 # =====================================================
 # GUI
 # =====================================================
@@ -65,7 +64,7 @@ class CompilerGUI:
         self.window = tk.Tk()
 
         self.window.title(
-            "Compilador DSL Recetas Dulces"
+            "Compilador de Recetas"
         )
 
         self.window.geometry(
@@ -164,15 +163,53 @@ class CompilerGUI:
             undo=True
         )
 
+        self.editor.bind(
+            "<KeyRelease>",
+            self.validar_en_vivo
+        )
+
         self.editor.pack(
             fill="both",
             expand=True
+        )
+
+        self.estado = tk.Label(
+            izq,
+            text="✔ Sin errores",
+            anchor="w",
+            bg=BG,
+            fg="#2E7D32",
+            font=("Segoe UI", 9)
         )
 
         self.editor.insert(
             "1.0",
             RECETA_EJEMPLO
         )
+
+        self.editor.tag_config(
+            "warning",
+            underline=True,
+            foreground="red",
+            background="#FFF3CD"
+        )
+
+        self.editor.tag_config(
+            "error",
+            foreground="white",
+            background="#E74C3C"
+        )
+
+        self.estado = tk.Label(
+            izq,
+            text="✔ Sin errores",
+            anchor="w",
+            bg=BG,
+            fg="#2E7D32",
+            font=("Segoe UI", 9)
+        )
+
+        self.estado.pack(fill=tk.X, pady=(2,5))
 
         # -----------------------------------------
         # BOTONES
@@ -323,7 +360,241 @@ class CompilerGUI:
             expand=True
         )
 
-    # =================================================
+    def validar_en_vivo(self, event=None):
+
+        self.editor.tag_remove(
+            "warning",
+            "1.0",
+            tk.END
+        )
+
+        errores = []
+
+        texto = self.editor.get(
+            "1.0",
+            tk.END
+        )
+
+        lineas = texto.splitlines()
+
+        ingredientes_validos = {
+            'AGUA','LECHE','ACEITE','VAINILLA',
+            'CREMA','RON','CAFE',
+            'HARINA','AZUCAR','SAL',
+            'CHOCOLATE','MANTEQUILLA',
+            'FRESA','CACAO',
+            'POLVO_HORNEAR',
+            'BICARBONATO',
+            'MAICENA',
+            'QUESO_CREMA',
+            'AZUCAR_GLASS',
+            'CANELA',
+            'NUEZ',
+            'COCO',
+            'HUEVO',
+            'HUEVOS',
+            'YEMA',
+            'YEMAS',
+            'CLARA',
+            'CLARAS'
+        }
+
+        acciones_validas = {
+            'MEZCLAR',
+            'BATIR',
+            'HORNEAR',
+            'DECORAR',
+            'ENGRASAR',
+            'VERTER',
+            'ENFRIAR',
+            'CERNIR'
+        }
+
+        for numero, linea in enumerate(lineas):
+
+            linea = linea.strip()
+
+            if not linea:
+                continue
+
+            # ==========================
+            # FALTA ;
+            # ==========================
+
+            if not linea.endswith(";"):
+
+                errores.append(
+                    f"Línea {numero+1}: falta ';'"
+                )
+
+                self.marcar_linea(numero)
+
+                continue
+
+            partes = linea.replace(
+                ";",
+                ""
+            ).split()
+
+            # ==========================
+            # AGREGAR
+            # ==========================
+
+            if linea.startswith("AGREGAR"):
+
+                if len(partes) >= 4:
+
+                    ingrediente = partes[1]
+
+                    try:
+                        cantidad = int(partes[2])
+                    except:
+                        cantidad = None
+
+                    unidad = partes[3].upper()
+
+                    if ingrediente not in ingredientes_validos:
+
+                        errores.append(
+                            f"Línea {numero+1}: ingrediente desconocido '{ingrediente}'"
+                        )
+
+                        self.marcar_linea(numero)
+
+                    if ingrediente in {
+                        'LECHE','AGUA','ACEITE',
+                        'VAINILLA','CREMA',
+                        'RON','CAFE'
+                    }:
+
+                        if unidad != "ML":
+
+                            errores.append(
+                                f"Línea {numero+1}: {ingrediente} debe usar ml"
+                            )
+
+                            self.marcar_linea(numero)
+
+                    if ingrediente in {
+                        'HARINA','AZUCAR',
+                        'SAL','CHOCOLATE',
+                        'MANTEQUILLA',
+                        'FRESA','CACAO',
+                        'POLVO_HORNEAR',
+                        'BICARBONATO',
+                        'MAICENA',
+                        'QUESO_CREMA',
+                        'AZUCAR_GLASS',
+                        'CANELA',
+                        'NUEZ',
+                        'COCO'
+                    }:
+
+                        if unidad != "GR":
+
+                            errores.append(
+                                f"Línea {numero+1}: {ingrediente} debe usar gr"
+                            )
+
+                            self.marcar_linea(numero)
+
+                    if ingrediente in {
+                        'HUEVO',
+                        'HUEVOS',
+                        'YEMA',
+                        'YEMAS',
+                        'CLARA',
+                        'CLARAS'
+                    }:
+
+                        if unidad != "UN":
+
+                            errores.append(
+                                f"Línea {numero+1}: {ingrediente} debe usar un"
+                            )
+
+                            self.marcar_linea(numero)
+
+            # ==========================
+            # PRECALENTAR
+            # ==========================
+
+            elif linea.startswith("PRECALENTAR"):
+
+                if len(partes) >= 3:
+
+                    try:
+
+                        temp = int(
+                            partes[1]
+                        )
+
+                        if temp < 50:
+
+                            errores.append(
+                                f"Línea {numero+1}: temperatura demasiado baja"
+                            )
+
+                            self.marcar_linea(numero)
+
+                        elif temp > 250:
+
+                            errores.append(
+                                f"Línea {numero+1}: temperatura demasiado alta"
+                            )
+
+                            self.marcar_linea(numero)
+
+                    except:
+                        pass
+
+            # ==========================
+            # REPETIR
+            # ==========================
+
+            elif linea.startswith("REPETIR"):
+
+                if len(partes) >= 4:
+
+                    accion = partes[3]
+
+                    if accion not in acciones_validas:
+
+                        errores.append(
+                            f"Línea {numero+1}: acción inválida '{accion}'"
+                        )
+
+                        self.marcar_linea(numero)
+
+        # ==========================
+        # MOSTRAR RESULTADO
+        # ==========================
+
+        if errores:
+
+            self.estado.config(
+                text=errores[0],
+                fg="#D32F2F"
+            )
+
+        else:
+
+            self.estado.config(
+                text="✔ Sin errores",
+                fg="#2E7D32"
+            )
+
+    def marcar_linea(self, numero_linea):
+
+        inicio = f"{numero_linea+1}.0"
+
+        fin = f"{numero_linea+1}.end"
+
+        self.editor.tag_add(
+            "warning",
+            inicio,
+            fin
+        )
 
     def compilar(self):
 
