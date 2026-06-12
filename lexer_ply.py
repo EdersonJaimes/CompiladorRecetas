@@ -61,10 +61,22 @@ def t_newline(t):
 
 
 # ERRORES
-def t_error(t):
+class LexicalErrorToken(Exception):
+    def __init__(self, mensaje, lineno):
+        super().__init__(mensaje)
+        self.lineno = lineno
 
-    raise Exception(
-        f"ERROR LÉXICO: símbolo inválido '{t.value[0]}'"
+
+def t_error(t):
+    raise LexicalErrorToken(
+        f"símbolo inválido '{t.value[0]}'",
+        t.lineno
     )
 
-lexer = lex.lex()
+
+def crear_lexer():
+    """Crea una nueva instancia del lexer (limpia estado/lineno)."""
+    return lex.lex()
+
+
+lexer = crear_lexer()

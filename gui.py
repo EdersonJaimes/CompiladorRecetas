@@ -3,6 +3,7 @@ from tkinter import ttk
 from tkinter import messagebox
 
 from compiler import Compiler
+from symbols import INGREDIENTES, UNIDADES_VALIDAS, ACCIONES_VALIDAS
 
 # COLORES
 
@@ -15,12 +16,15 @@ AZUL2 = "#42A5F5"
 TEXTO = "#1E293B"
 
 EDITOR_BG = "#FFFFFF"
+GUTTER_BG = "#E8EEF6"
+GUTTER_FG = "#90A4BE"
 
 CONSOLA_BG = "#0F172A"
 CONSOLA_TXT = "#E2E8F0"
 
 VERDE = "#10B981"
 ROJO = "#EF4444"
+AMARILLO = "#F59E0B"
 
 
 # =====================================================
@@ -51,6 +55,14 @@ REPETIR 1 VECES ENFRIAR;
 REPETIR 2 VECES DECORAR;
 """
 
+# Conjuntos derivados de symbols.py para la validación en vivo
+INGREDIENTES_LIQUIDOS = {k for k, v in INGREDIENTES.items() if v == "LIQUIDO"}
+INGREDIENTES_SOLIDOS = {k for k, v in INGREDIENTES.items() if v == "SOLIDO"}
+INGREDIENTES_CONTABLES = {k for k, v in INGREDIENTES.items() if v == "CONTABLE"}
+
+UNIDADES_TEXTO = {"ML": "ml", "GR": "gr", "UN": "un"}
+
+
 # =====================================================
 # GUI
 # =====================================================
@@ -68,7 +80,7 @@ class CompilerGUI:
         )
 
         self.window.geometry(
-            "1350x750"
+            "1400x780"
         )
 
         self.window.configure(
@@ -76,6 +88,10 @@ class CompilerGUI:
         )
 
         self.crear_interfaz()
+
+        # Render inicial de números de línea + validación
+        self.actualizar_numeros_linea()
+        self.validar_en_vivo()
 
     # =================================================
 
@@ -107,7 +123,7 @@ class CompilerGUI:
 
         tk.Label(
             titulo,
-            text="Análisis Léxico • Sintáctico • Semántico • Código Intermedio",
+            text="Análisis Léxico • Sintáctico • Semántico ",
             bg=AZUL,
             fg="white",
             font=("Segoe UI", 10)
@@ -155,32 +171,68 @@ class CompilerGUI:
             pady=(0, 5)
         )
 
-        self.editor = tk.Text(
-            izq,
-            bg=EDITOR_BG,
-            fg=TEXTO,
-            font=("Consolas", 12),
-            undo=True
-        )
+        # -----------------------------------------
+        # EDITOR + NÚMEROS DE LÍNEA
+        # -----------------------------------------
 
-        self.editor.bind(
-            "<KeyRelease>",
-            self.validar_en_vivo
-        )
+        editor_frame = tk.Frame(izq, bg=BG)
 
-        self.editor.pack(
+        editor_frame.pack(
             fill="both",
             expand=True
         )
 
-        self.estado = tk.Label(
-            izq,
-            text="✔ Sin errores",
-            anchor="w",
-            bg=BG,
-            fg="#2E7D32",
-            font=("Segoe UI", 9)
+        # Gutter de números de línea
+        self.numeros = tk.Text(
+            editor_frame,
+            width=4,
+            padx=4,
+            bg=GUTTER_BG,
+            fg=GUTTER_FG,
+            font=("Consolas", 12),
+            relief="flat",
+            state="disabled",
+            takefocus=0,
+            wrap="none",
         )
+
+        self.numeros.pack(
+            side="left",
+            fill="y"
+        )
+
+        self.editor = tk.Text(
+            editor_frame,
+            bg=EDITOR_BG,
+            fg=TEXTO,
+            font=("Consolas", 12),
+            undo=True,
+            wrap="none",
+        )
+
+        self.editor.pack(
+            side="left",
+            fill="both",
+            expand=True
+        )
+
+        # Scroll vertical sincronizado entre editor y gutter
+        scroll = tk.Scrollbar(
+            editor_frame,
+            orient="vertical",
+            command=self._scroll_ambos
+        )
+
+        scroll.pack(side="right", fill="y")
+
+        self.editor.configure(yscrollcommand=self._on_editor_scroll)
+        self.numeros.configure(yscrollcommand=scroll.set)
+        self._scrollbar = scroll
+
+        # Eventos para refrescar números de línea + validación en vivo
+        self.editor.bind("<KeyRelease>", self._on_editor_change)
+        self.editor.bind("<MouseWheel>", lambda e: self.window.after(1, self.actualizar_numeros_linea))
+        self.editor.bind("<ButtonRelease>", lambda e: self.window.after(1, self.actualizar_numeros_linea))
 
         self.editor.insert(
             "1.0",
@@ -190,26 +242,26 @@ class CompilerGUI:
         self.editor.tag_config(
             "warning",
             underline=True,
-            foreground="red",
+            foreground="#B91C1C",
             background="#FFF3CD"
         )
 
-        self.editor.tag_config(
-            "error",
-            foreground="white",
-            background="#E74C3C"
-        )
+        # -----------------------------------------
+        # ESTADO (validación en vivo)
+        # -----------------------------------------
 
         self.estado = tk.Label(
             izq,
             text="✔ Sin errores",
             anchor="w",
+            justify="left",
             bg=BG,
             fg="#2E7D32",
-            font=("Segoe UI", 9)
+            font=("Segoe UI", 9),
+            wraplength=700,
         )
 
-        self.estado.pack(fill=tk.X, pady=(2,5))
+        self.estado.pack(fill=tk.X, pady=(4, 5))
 
         # -----------------------------------------
         # BOTONES
@@ -268,7 +320,7 @@ class CompilerGUI:
         der = tk.Frame(
             contenedor,
             bg=PANEL,
-            width=500
+            width=550
         )
 
         der.pack(
@@ -338,27 +390,99 @@ class CompilerGUI:
         )
 
         # =========================================
-        # CÓDIGO INTERMEDIO
+        # TABLA DE SÍMBOLOS
         # =========================================
 
-        tab_ci = tk.Frame(tabs)
+        tab_simbolos = tk.Frame(tabs)
 
         tabs.add(
-            tab_ci,
-            text="Código Intermedio"
+            tab_simbolos,
+            text="Tabla de Símbolos"
         )
 
-        self.txt_ci = tk.Text(
-            tab_ci,
+        cols = ("nombre", "tipo", "valor", "lineas")
+
+        self.tabla_simbolos = ttk.Treeview(
+            tab_simbolos,
+            columns=cols,
+            show="headings",
+        )
+
+        self.tabla_simbolos.heading("nombre", text="Nombre")
+        self.tabla_simbolos.heading("tipo", text="Tipo")
+        self.tabla_simbolos.heading("valor", text="Valor")
+        self.tabla_simbolos.heading("lineas", text="Líneas")
+
+        self.tabla_simbolos.column("nombre", width=130, anchor="w")
+        self.tabla_simbolos.column("tipo", width=170, anchor="w")
+        self.tabla_simbolos.column("valor", width=90, anchor="center")
+        self.tabla_simbolos.column("lineas", width=90, anchor="center")
+
+        self.tabla_simbolos.pack(
+            fill="both",
+            expand=True
+        )
+
+        # =========================================
+        # ÁRBOL SINTÁCTICO
+        # =========================================
+
+        tab_arbol = tk.Frame(tabs)
+
+        tabs.add(
+            tab_arbol,
+            text="Árbol Sintáctico"
+        )
+
+        self.txt_arbol = tk.Text(
+            tab_arbol,
             bg=CONSOLA_BG,
             fg=VERDE,
             font=("Consolas", 10)
         )
 
-        self.txt_ci.pack(
+        self.txt_arbol.pack(
             fill="both",
             expand=True
         )
+
+    # =================================================
+    # SCROLL SINCRONIZADO ENTRE GUTTER Y EDITOR
+    # =================================================
+
+    def _scroll_ambos(self, *args):
+        self.editor.yview(*args)
+        self.numeros.yview(*args)
+
+    def _on_editor_scroll(self, *args):
+        self._scrollbar.set(*args)
+        self.numeros.yview_moveto(args[0])
+
+    def _on_editor_change(self, event=None):
+        self.actualizar_numeros_linea()
+        self.validar_en_vivo()
+
+    # =================================================
+    # NÚMEROS DE LÍNEA
+    # =================================================
+
+    def actualizar_numeros_linea(self):
+
+        total_lineas = int(self.editor.index("end-1c").split(".")[0])
+
+        contenido = "\n".join(str(n) for n in range(1, total_lineas + 1))
+
+        self.numeros.config(state="normal")
+        self.numeros.delete("1.0", tk.END)
+        self.numeros.insert("1.0", contenido)
+        self.numeros.config(state="disabled")
+
+        # Mantener sincronizado el scroll vertical
+        self.numeros.yview_moveto(self.editor.yview()[0])
+
+    # =================================================
+    # VALIDACIÓN EN VIVO
+    # =================================================
 
     def validar_en_vivo(self, event=None):
 
@@ -377,42 +501,13 @@ class CompilerGUI:
 
         lineas = texto.splitlines()
 
-        ingredientes_validos = {
-            'AGUA','LECHE','ACEITE','VAINILLA',
-            'CREMA','RON','CAFE',
-            'HARINA','AZUCAR','SAL',
-            'CHOCOLATE','MANTEQUILLA',
-            'FRESA','CACAO',
-            'POLVO_HORNEAR',
-            'BICARBONATO',
-            'MAICENA',
-            'QUESO_CREMA',
-            'AZUCAR_GLASS',
-            'CANELA',
-            'NUEZ',
-            'COCO',
-            'HUEVO',
-            'HUEVOS',
-            'YEMA',
-            'YEMAS',
-            'CLARA',
-            'CLARAS'
+        instrucciones_validas = {
+            "AGREGAR", "REPETIR", "PRECALENTAR"
         }
 
-        acciones_validas = {
-            'MEZCLAR',
-            'BATIR',
-            'HORNEAR',
-            'DECORAR',
-            'ENGRASAR',
-            'VERTER',
-            'ENFRIAR',
-            'CERNIR'
-        }
+        for numero, linea_original in enumerate(lineas):
 
-        for numero, linea in enumerate(lineas):
-
-            linea = linea.strip()
+            linea = linea_original.strip()
 
             if not linea:
                 continue
@@ -431,140 +526,249 @@ class CompilerGUI:
 
                 continue
 
-            partes = linea.replace(
-                ";",
-                ""
-            ).split()
+            partes = linea[:-1].split()
+
+            if not partes:
+                errores.append(
+                    f"Línea {numero+1}: instrucción vacía"
+                )
+                self.marcar_linea(numero)
+                continue
+
+            palabra_clave = partes[0]
 
             # ==========================
             # AGREGAR
             # ==========================
 
-            if linea.startswith("AGREGAR"):
+            if palabra_clave == "AGREGAR":
 
-                if len(partes) >= 4:
+                # Estructura: AGREGAR <ingrediente> <numero> <unidad>
+                if len(partes) != 4:
 
-                    ingrediente = partes[1]
+                    errores.append(
+                        f"Línea {numero+1}: AGREGAR debe tener la forma "
+                        f"'AGREGAR <ingrediente> <cantidad> <unidad>;'"
+                    )
 
-                    try:
-                        cantidad = int(partes[2])
-                    except:
-                        cantidad = None
+                    self.marcar_linea(numero)
+                    continue
 
-                    unidad = partes[3].upper()
+                ingrediente = partes[1]
+                cantidad_str = partes[2]
+                unidad_str = partes[3]
 
-                    if ingrediente not in ingredientes_validos:
+                # Ingrediente debe ser identificador válido (mayúsculas)
+                if not self._es_identificador(ingrediente):
+                    errores.append(
+                        f"Línea {numero+1}: '{ingrediente}' no es un "
+                        f"identificador válido (use MAYÚSCULAS y guion bajo)"
+                    )
+                    self.marcar_linea(numero)
 
+                # Cantidad debe ser numérica
+                cantidad = None
+                if not cantidad_str.isdigit():
+                    errores.append(
+                        f"Línea {numero+1}: '{cantidad_str}' no es una "
+                        f"cantidad numérica válida"
+                    )
+                    self.marcar_linea(numero)
+                else:
+                    cantidad = int(cantidad_str)
+
+                # Unidad debe ser ml, gr o un
+                unidad = unidad_str.upper()
+                if unidad not in UNIDADES_VALIDAS.values():
+                    errores.append(
+                        f"Línea {numero+1}: unidad inválida '{unidad_str}' "
+                        f"(use ml, gr o un)"
+                    )
+                    self.marcar_linea(numero)
+
+                # Ingrediente reconocido
+                if self._es_identificador(ingrediente):
+
+                    if ingrediente not in INGREDIENTES:
                         errores.append(
-                            f"Línea {numero+1}: ingrediente desconocido '{ingrediente}'"
+                            f"Línea {numero+1}: ingrediente desconocido "
+                            f"'{ingrediente}'"
                         )
-
                         self.marcar_linea(numero)
 
-                    if ingrediente in {
-                        'LECHE','AGUA','ACEITE',
-                        'VAINILLA','CREMA',
-                        'RON','CAFE'
-                    }:
+                    else:
+                        # Validar unidad correcta según tipo de ingrediente
+                        tipo = INGREDIENTES[ingrediente]
+                        unidad_correcta = UNIDADES_VALIDAS[tipo]
 
-                        if unidad != "ML":
-
+                        if unidad in UNIDADES_VALIDAS.values() and unidad != unidad_correcta:
                             errores.append(
-                                f"Línea {numero+1}: {ingrediente} debe usar ml"
+                                f"Línea {numero+1}: {ingrediente} debe usar "
+                                f"{UNIDADES_TEXTO[unidad_correcta]}"
                             )
-
                             self.marcar_linea(numero)
 
-                    if ingrediente in {
-                        'HARINA','AZUCAR',
-                        'SAL','CHOCOLATE',
-                        'MANTEQUILLA',
-                        'FRESA','CACAO',
-                        'POLVO_HORNEAR',
-                        'BICARBONATO',
-                        'MAICENA',
-                        'QUESO_CREMA',
-                        'AZUCAR_GLASS',
-                        'CANELA',
-                        'NUEZ',
-                        'COCO'
-                    }:
+                # Validar rango de cantidad
+                if cantidad is not None:
 
-                        if unidad != "GR":
+                    if cantidad <= 0:
+                        errores.append(
+                            f"Línea {numero+1}: la cantidad debe ser mayor a 0"
+                        )
+                        self.marcar_linea(numero)
 
-                            errores.append(
-                                f"Línea {numero+1}: {ingrediente} debe usar gr"
-                            )
-
-                            self.marcar_linea(numero)
-
-                    if ingrediente in {
-                        'HUEVO',
-                        'HUEVOS',
-                        'YEMA',
-                        'YEMAS',
-                        'CLARA',
-                        'CLARAS'
-                    }:
-
-                        if unidad != "UN":
-
-                            errores.append(
-                                f"Línea {numero+1}: {ingrediente} debe usar un"
-                            )
-
-                            self.marcar_linea(numero)
+                    elif cantidad > 10000:
+                        errores.append(
+                            f"Línea {numero+1}: cantidad excesiva (máximo 10000)"
+                        )
+                        self.marcar_linea(numero)
 
             # ==========================
             # PRECALENTAR
             # ==========================
 
-            elif linea.startswith("PRECALENTAR"):
+            elif palabra_clave == "PRECALENTAR":
 
-                if len(partes) >= 3:
+                # Estructura: PRECALENTAR <numero> °C
+                if len(partes) != 3:
+                    errores.append(
+                        f"Línea {numero+1}: PRECALENTAR debe tener la forma "
+                        f"'PRECALENTAR <temperatura> °C;'"
+                    )
+                    self.marcar_linea(numero)
+                    continue
 
-                    try:
+                temp_str = partes[1]
+                grados_str = partes[2]
 
-                        temp = int(
-                            partes[1]
+                if not temp_str.isdigit():
+                    errores.append(
+                        f"Línea {numero+1}: '{temp_str}' no es una "
+                        f"temperatura numérica válida"
+                    )
+                    self.marcar_linea(numero)
+                else:
+                    temp = int(temp_str)
+
+                    if temp < 50:
+                        errores.append(
+                            f"Línea {numero+1}: temperatura demasiado baja "
+                            f"(mínimo 50°C)"
                         )
+                        self.marcar_linea(numero)
 
-                        if temp < 50:
+                    elif temp > 250:
+                        errores.append(
+                            f"Línea {numero+1}: temperatura demasiado alta "
+                            f"(máximo 250°C)"
+                        )
+                        self.marcar_linea(numero)
 
-                            errores.append(
-                                f"Línea {numero+1}: temperatura demasiado baja"
-                            )
-
-                            self.marcar_linea(numero)
-
-                        elif temp > 250:
-
-                            errores.append(
-                                f"Línea {numero+1}: temperatura demasiado alta"
-                            )
-
-                            self.marcar_linea(numero)
-
-                    except:
-                        pass
+                if grados_str != "°C":
+                    errores.append(
+                        f"Línea {numero+1}: se esperaba '°C' después de la "
+                        f"temperatura"
+                    )
+                    self.marcar_linea(numero)
 
             # ==========================
             # REPETIR
             # ==========================
 
-            elif linea.startswith("REPETIR"):
+            elif palabra_clave == "REPETIR":
 
-                if len(partes) >= 4:
+                # Estructura: REPETIR <numero> VECES <accion>
+                if len(partes) != 4:
+                    errores.append(
+                        f"Línea {numero+1}: REPETIR debe tener la forma "
+                        f"'REPETIR <n> VECES <accion>;'"
+                    )
+                    self.marcar_linea(numero)
+                    continue
 
-                    accion = partes[3]
+                veces_str = partes[1]
+                veces_kw = partes[2]
+                accion = partes[3]
 
-                    if accion not in acciones_validas:
+                if not veces_str.isdigit():
+                    errores.append(
+                        f"Línea {numero+1}: '{veces_str}' no es un número "
+                        f"válido de repeticiones"
+                    )
+                    self.marcar_linea(numero)
+                else:
+                    veces = int(veces_str)
 
+                    if veces <= 0:
                         errores.append(
-                            f"Línea {numero+1}: acción inválida '{accion}'"
+                            f"Línea {numero+1}: el número de repeticiones "
+                            f"debe ser mayor a 0"
                         )
-
                         self.marcar_linea(numero)
+
+                    elif veces > 100:
+                        errores.append(
+                            f"Línea {numero+1}: número de repeticiones "
+                            f"excesivo (máximo 100)"
+                        )
+                        self.marcar_linea(numero)
+
+                if veces_kw != "VECES":
+                    errores.append(
+                        f"Línea {numero+1}: se esperaba la palabra clave "
+                        f"'VECES'"
+                    )
+                    self.marcar_linea(numero)
+
+                if accion not in ACCIONES_VALIDAS:
+                    errores.append(
+                        f"Línea {numero+1}: acción inválida '{accion}'"
+                    )
+                    self.marcar_linea(numero)
+
+            # ==========================
+            # ASIGNACIÓN: VAR = VALOR
+            # ==========================
+
+            elif "=" in linea:
+
+                if len(partes) != 3 or partes[1] != "=":
+                    errores.append(
+                        f"Línea {numero+1}: asignación inválida, use "
+                        f"'VARIABLE = VALOR;'"
+                    )
+                    self.marcar_linea(numero)
+                    continue
+
+                variable, _, valor = partes
+
+                if not self._es_identificador(variable):
+                    errores.append(
+                        f"Línea {numero+1}: '{variable}' no es un "
+                        f"identificador válido"
+                    )
+                    self.marcar_linea(numero)
+
+                if not self._es_identificador(valor):
+                    errores.append(
+                        f"Línea {numero+1}: '{valor}' no es un "
+                        f"identificador válido"
+                    )
+                    self.marcar_linea(numero)
+
+            # ==========================
+            # PALABRA CLAVE DESCONOCIDA
+            # ==========================
+
+            else:
+
+                errores.append(
+                    f"Línea {numero+1}: instrucción desconocida "
+                    f"'{palabra_clave}'. Use AGREGAR, REPETIR, "
+                    f"PRECALENTAR o una asignación."
+                )
+
+                self.marcar_linea(numero)
 
         # ==========================
         # MOSTRAR RESULTADO
@@ -572,8 +776,16 @@ class CompilerGUI:
 
         if errores:
 
+            if len(errores) == 1:
+                texto_estado = "⚠ " + errores[0]
+            else:
+                texto_estado = (
+                    f"⚠ {len(errores)} problemas encontrados — "
+                    f"{errores[0]}"
+                )
+
             self.estado.config(
-                text=errores[0],
+                text=texto_estado,
                 fg="#D32F2F"
             )
 
@@ -583,6 +795,21 @@ class CompilerGUI:
                 text="✔ Sin errores",
                 fg="#2E7D32"
             )
+
+    def _es_identificador(self, texto):
+        """Replica el patrón [A-Z_][A-Z_0-9]* del lexer."""
+
+        if not texto:
+            return False
+
+        if not (texto[0].isalpha() and texto[0].isupper() or texto[0] == "_"):
+            return False
+
+        for c in texto[1:]:
+            if not ((c.isalpha() and c.isupper()) or c.isdigit() or c == "_"):
+                return False
+
+        return True
 
     def marcar_linea(self, numero_linea):
 
@@ -596,6 +823,10 @@ class CompilerGUI:
             fin
         )
 
+    # =================================================
+    # COMPILACIÓN
+    # =================================================
+
     def compilar(self):
 
         codigo = self.editor.get(
@@ -603,45 +834,63 @@ class CompilerGUI:
             tk.END
         )
 
-        self.txt_tokens.delete(
-            "1.0",
-            tk.END
-        )
+        self.txt_tokens.delete("1.0", tk.END)
+        self.txt_errores.delete("1.0", tk.END)
+        self.txt_arbol.delete("1.0", tk.END)
 
-        self.txt_errores.delete(
-            "1.0",
-            tk.END
-        )
-
-        self.txt_ci.delete(
-            "1.0",
-            tk.END
-        )
+        for fila in self.tabla_simbolos.get_children():
+            self.tabla_simbolos.delete(fila)
 
         try:
 
-            tokens, codigo_intermedio = (
-                self.compiler.compilar(
-                    codigo
+            resultado = self.compiler.compilar(codigo)
+
+            # --- TOKENS ---
+            for token in resultado["tokens"]:
+                self.txt_tokens.insert(tk.END, f"{token}\n")
+
+            # --- ERRORES ---
+            errores = resultado["errores"]
+
+            if errores:
+                for err in errores:
+                    self.txt_errores.insert(tk.END, f"{err}\n")
+            else:
+                self.txt_errores.insert(
+                    tk.END, "✔ No se encontraron errores.\n"
                 )
-            )
 
-            for token in tokens:
-
-                self.txt_tokens.insert(
-                    tk.END,
-                    f"{token}\n"
+            # --- ÁRBOL SINTÁCTICO ---
+            arbol = resultado["arbol"]
+            if arbol.hijos:
+                self.txt_arbol.insert(tk.END, str(arbol))
+            else:
+                self.txt_arbol.insert(
+                    tk.END, "(no se generó ningún nodo válido)"
                 )
 
-            self.txt_ci.insert(
-                tk.END,
-                codigo_intermedio
-            )
+            # --- TABLA DE SÍMBOLOS ---
+            for nombre, info in resultado["tabla_simbolos"].items():
 
-            messagebox.showinfo(
-                "Compilación",
-                "La receta fue compilada correctamente."
-            )
+                lineas_str = ", ".join(str(l) for l in info["usos"])
+
+                self.tabla_simbolos.insert(
+                    "", tk.END,
+                    values=(nombre, info["tipo"], info["valor"], lineas_str)
+                )
+
+            # --- MENSAJE FINAL ---
+            if errores:
+                messagebox.showwarning(
+                    "Compilación con errores",
+                    f"Se encontraron {len(errores)} error(es). "
+                    f"Revisa la pestaña 'Errores'."
+                )
+            else:
+                messagebox.showinfo(
+                    "Compilación",
+                    "La receta fue compilada correctamente."
+                )
 
         except Exception as e:
 
@@ -659,39 +908,26 @@ class CompilerGUI:
 
     def limpiar(self):
 
-        self.editor.delete(
-            "1.0",
-            tk.END
-        )
+        self.editor.delete("1.0", tk.END)
+        self.txt_tokens.delete("1.0", tk.END)
+        self.txt_errores.delete("1.0", tk.END)
+        self.txt_arbol.delete("1.0", tk.END)
 
-        self.txt_tokens.delete(
-            "1.0",
-            tk.END
-        )
+        for fila in self.tabla_simbolos.get_children():
+            self.tabla_simbolos.delete(fila)
 
-        self.txt_errores.delete(
-            "1.0",
-            tk.END
-        )
-
-        self.txt_ci.delete(
-            "1.0",
-            tk.END
-        )
+        self.actualizar_numeros_linea()
+        self.validar_en_vivo()
 
     # =================================================
 
     def cargar_ejemplo(self):
 
-        self.editor.delete(
-            "1.0",
-            tk.END
-        )
+        self.editor.delete("1.0", tk.END)
+        self.editor.insert("1.0", RECETA_EJEMPLO)
 
-        self.editor.insert(
-            "1.0",
-            RECETA_EJEMPLO
-        )
+        self.actualizar_numeros_linea()
+        self.validar_en_vivo()
 
     # =================================================
 

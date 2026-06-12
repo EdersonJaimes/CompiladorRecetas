@@ -4,32 +4,20 @@ from lexer_ply import tokens
 from semantic import SemanticAnalyzer
 from intermediate_code import IntermediateCodeGenerator
 from ast_node import ASTNode
+from errors import SyntaxCompilerError
 
 
-semantic = SemanticAnalyzer()
+semantic = None
 intermediate = None
+linea_actual = 1
+
 
 # PROGRAMA
 def p_programa(p):
     '''
-    programa : instrucciones
+    programa : instruccion
     '''
-    p[0] = "Programa válido"
-
-
-# LISTA DE INSTRUCCIONES
-def p_instrucciones_multiple(p):
-    '''
-    instrucciones : instrucciones instruccion
-    '''
-    pass
-
-
-def p_instrucciones_simple(p):
-    '''
-    instrucciones : instruccion
-    '''
-    pass
+    p[0] = p[1]
 
 
 # AGREGAR
@@ -42,11 +30,13 @@ def p_instruccion_agregar(p):
     cantidad = p[3]
     unidad = p[4]
 
-    semantic.validar_cantidad(cantidad)
+    semantic.validar_cantidad(cantidad, linea_actual)
 
     semantic.validar_agregar(
         ingrediente,
-        unidad
+        cantidad,
+        unidad,
+        linea_actual
     )
 
     intermediate.agregar(
@@ -55,10 +45,16 @@ def p_instruccion_agregar(p):
         unidad.lower()
     )
 
+    nodo = ASTNode("AGREGAR")
+    nodo.agregar(ASTNode(f"Ingrediente: {ingrediente}"))
+    nodo.agregar(ASTNode(f"Cantidad: {cantidad}"))
+    nodo.agregar(ASTNode(f"Unidad: {unidad.lower()}"))
+
+    p[0] = nodo
+
 
 # PRECALENTAR
 # PRECALENTAR 180 °C;
-
 def p_instruccion_precalentar(p):
     '''
     instruccion : PRECALENTAR NUMERO C PUNTO_COMA
@@ -67,12 +63,19 @@ def p_instruccion_precalentar(p):
     temperatura = p[2]
 
     semantic.validar_temperatura(
-        temperatura
+        temperatura,
+        linea_actual
     )
 
     intermediate.precalentar(
         temperatura
     )
+
+    nodo = ASTNode("PRECALENTAR")
+    nodo.agregar(ASTNode(f"Temperatura: {temperatura} °C"))
+
+    p[0] = nodo
+
 
 # REPETIR
 # REPETIR 5 VECES BATIR;
@@ -84,10 +87,22 @@ def p_instruccion_repetir(p):
     veces = p[2]
     accion = p[4]
 
+    semantic.validar_repetir(
+        veces,
+        accion,
+        linea_actual
+    )
+
     intermediate.repetir(
         veces,
         accion
     )
+
+    nodo = ASTNode("REPETIR")
+    nodo.agregar(ASTNode(f"Veces: {veces}"))
+    nodo.agregar(ASTNode(f"Accion: {accion}"))
+
+    p[0] = nodo
 
 
 # ASIGNACION
@@ -100,10 +115,22 @@ def p_instruccion_asignacion(p):
     variable = p[1]
     valor = p[3]
 
+    semantic.validar_asignacion(
+        variable,
+        valor,
+        linea_actual
+    )
+
     intermediate.asignacion(
         variable,
         valor
     )
+
+    nodo = ASTNode("ASIGNACION")
+    nodo.agregar(ASTNode(f"Variable: {variable}"))
+    nodo.agregar(ASTNode(f"Valor: {valor}"))
+
+    p[0] = nodo
 
 
 # UNIDADES
@@ -126,6 +153,7 @@ def p_unidad_un(p):
     unidad : UN
     '''
     p[0] = "UN"
+
 
 # ACCIONES
 def p_accion_mezclar(p):
@@ -183,24 +211,32 @@ def p_accion_cernir(p):
     '''
     p[0] = "CERNIR"
 
+
 def reiniciar_generador():
 
-    global intermediate
+    global intermediate, semantic
 
     intermediate = IntermediateCodeGenerator()
+    semantic = SemanticAnalyzer()
+
+
+def set_linea_actual(n):
+    global linea_actual
+    linea_actual = n
+
 
 # ERROR SINTACTICO
 def p_error(p):
 
     if p:
 
-        raise Exception(
-            f"ERROR SINTÁCTICO: token inesperado "
-            f"'{p.value}'"
+        raise SyntaxCompilerError(
+            f"token inesperado '{p.value}'"
         )
 
-    raise Exception(
-        "ERROR SINTÁCTICO: fin inesperado del archivo"
+    raise SyntaxCompilerError(
+        "fin inesperado de la instrucción (¿falta ';'?)"
     )
 
-parser = yacc.yacc()
+
+parser = yacc.yacc(debug=False, write_tables=False)
