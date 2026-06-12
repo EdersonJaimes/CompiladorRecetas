@@ -5,26 +5,43 @@ from tkinter import messagebox
 from compiler import Compiler
 from symbols import INGREDIENTES, UNIDADES_VALIDAS, ACCIONES_VALIDAS
 
-# COLORES
+# =====================================================
+# PALETA - TEMA OSCURO (estilo editor de código)
+# =====================================================
 
-BG = "#F4F8FC"
-PANEL = "#EAF2FB"
+BG = "#1E1E1E"          # fondo general (estilo VS Code)
+PANEL = "#252526"        # panel lateral / pestañas
 
-AZUL = "#1565C0"
-AZUL2 = "#42A5F5"
+AZUL = "#0E639C"          # acentos / título / botón principal
+AZUL2 = "#1177BB"         # botón secundario
 
-TEXTO = "#1E293B"
+TEXTO = "#D4D4D4"          # texto normal de la interfaz
 
-EDITOR_BG = "#FFFFFF"
-GUTTER_BG = "#E8EEF6"
-GUTTER_FG = "#90A4BE"
+EDITOR_BG = "#1E1E1E"
+GUTTER_BG = "#252526"
+GUTTER_FG = "#6E7681"
 
-CONSOLA_BG = "#0F172A"
+CONSOLA_BG = "#0D1117"
 CONSOLA_TXT = "#E2E8F0"
 
 VERDE = "#10B981"
-ROJO = "#EF4444"
+ROJO = "#F87171"
 AMARILLO = "#F59E0B"
+
+# -----------------------------------------------------
+# COLORES DE RESALTADO DE SINTAXIS (por categoría)
+# -----------------------------------------------------
+
+COLOR_INSTRUCCION = "#569CD6"   # AGREGAR, REPETIR, VECES, PRECALENTAR -> azul claro
+COLOR_ACCION = "#C586C0"        # MEZCLAR, BATIR, HORNEAR, etc.       -> magenta/morado
+COLOR_LIQUIDO = "#4FC1FF"        # ingredientes líquidos               -> celeste
+COLOR_SOLIDO = "#CE9178"         # ingredientes sólidos                -> naranja/durazno
+COLOR_CONTABLE = "#B5CEA8"       # ingredientes contables (huevos...)  -> verde claro
+COLOR_UNIDAD = "#9CDCFE"         # ml, gr, un, °C                       -> azul muy claro
+COLOR_NUMERO = "#D7BA7D"          # números                              -> dorado
+COLOR_VARIABLE = "#4EC9B0"        # identificadores no reconocidos      -> verde-azulado
+COLOR_SIMBOLO = "#D4D4D4"          # ; = (símbolos)                       -> blanco grisáceo
+
 
 
 # =====================================================
@@ -62,6 +79,14 @@ INGREDIENTES_CONTABLES = {k for k, v in INGREDIENTES.items() if v == "CONTABLE"}
 
 UNIDADES_TEXTO = {"ML": "ml", "GR": "gr", "UN": "un"}
 
+# -----------------------------------------------------
+# PALABRAS RESERVADAS PARA RESALTADO DE SINTAXIS
+# -----------------------------------------------------
+
+PALABRAS_INSTRUCCION = {"AGREGAR", "REPETIR", "VECES", "PRECALENTAR"}
+PALABRAS_ACCION = set(ACCIONES_VALIDAS)
+PALABRAS_UNIDAD = {"ml", "gr", "un", "°C"}
+
 
 # =====================================================
 # GUI
@@ -87,11 +112,71 @@ class CompilerGUI:
             bg=BG
         )
 
+        self._configurar_estilo_oscuro()
+
         self.crear_interfaz()
 
         # Render inicial de números de línea + validación
         self.actualizar_numeros_linea()
         self.validar_en_vivo()
+        self.resaltar_sintaxis()
+
+    # =================================================
+
+    # =================================================
+
+    def _configurar_estilo_oscuro(self):
+
+        style = ttk.Style(self.window)
+
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+
+        # Notebook (pestañas)
+        style.configure(
+            "TNotebook",
+            background=PANEL,
+            borderwidth=0,
+        )
+
+        style.configure(
+            "TNotebook.Tab",
+            background="#2D2D30",
+            foreground=TEXTO,
+            padding=(12, 6),
+            font=("Segoe UI", 9, "bold"),
+        )
+
+        style.map(
+            "TNotebook.Tab",
+            background=[("selected", AZUL)],
+            foreground=[("selected", "#FFFFFF")],
+        )
+
+        # Treeview (tabla de símbolos)
+        style.configure(
+            "Treeview",
+            background=CONSOLA_BG,
+            fieldbackground=CONSOLA_BG,
+            foreground=CONSOLA_TXT,
+            borderwidth=0,
+            rowheight=24,
+        )
+
+        style.configure(
+            "Treeview.Heading",
+            background="#2D2D30",
+            foreground=TEXTO,
+            font=("Segoe UI", 9, "bold"),
+        )
+
+        style.map(
+            "Treeview",
+            background=[("selected", AZUL)],
+            foreground=[("selected", "#FFFFFF")],
+        )
 
     # =================================================
 
@@ -115,7 +200,7 @@ class CompilerGUI:
             titulo,
             text="🎂 COMPILADOR DSL - RECETAS DULCES",
             bg=AZUL,
-            fg="white",
+            fg="#FFFFFF",
             font=("Segoe UI", 18, "bold")
         ).pack(
             pady=(10, 0)
@@ -125,7 +210,7 @@ class CompilerGUI:
             titulo,
             text="Análisis Léxico • Sintáctico • Semántico ",
             bg=AZUL,
-            fg="white",
+            fg="#D4E8F7",
             font=("Segoe UI", 10)
         ).pack()
 
@@ -205,6 +290,8 @@ class CompilerGUI:
             editor_frame,
             bg=EDITOR_BG,
             fg=TEXTO,
+            insertbackground="#FFFFFF",
+            selectbackground="#264F78",
             font=("Consolas", 12),
             undo=True,
             wrap="none",
@@ -242,9 +329,26 @@ class CompilerGUI:
         self.editor.tag_config(
             "warning",
             underline=True,
-            foreground="#B91C1C",
-            background="#FFF3CD"
+            foreground="#F87171",
+            background="#3B1E1E"
         )
+
+        # -----------------------------------------
+        # TAGS DE RESALTADO DE SINTAXIS
+        # -----------------------------------------
+
+        self.editor.tag_config("tok_instruccion", foreground=COLOR_INSTRUCCION, font=("Consolas", 12, "bold"))
+        self.editor.tag_config("tok_accion", foreground=COLOR_ACCION, font=("Consolas", 12, "bold"))
+        self.editor.tag_config("tok_liquido", foreground=COLOR_LIQUIDO)
+        self.editor.tag_config("tok_solido", foreground=COLOR_SOLIDO)
+        self.editor.tag_config("tok_contable", foreground=COLOR_CONTABLE)
+        self.editor.tag_config("tok_unidad", foreground=COLOR_UNIDAD, font=("Consolas", 12, "italic"))
+        self.editor.tag_config("tok_numero", foreground=COLOR_NUMERO)
+        self.editor.tag_config("tok_variable", foreground=COLOR_VARIABLE)
+        self.editor.tag_config("tok_simbolo", foreground=COLOR_SIMBOLO)
+
+        # El subrayado de error debe verse por encima de los colores
+        self.editor.tag_raise("warning")
 
         # -----------------------------------------
         # ESTADO (validación en vivo)
@@ -256,7 +360,7 @@ class CompilerGUI:
             anchor="w",
             justify="left",
             bg=BG,
-            fg="#2E7D32",
+            fg="#4ADE80",
             font=("Segoe UI", 9),
             wraplength=700,
         )
@@ -347,7 +451,7 @@ class CompilerGUI:
         # TOKENS
         # =========================================
 
-        tab_tokens = tk.Frame(tabs)
+        tab_tokens = tk.Frame(tabs, bg=PANEL)
 
         tabs.add(
             tab_tokens,
@@ -370,7 +474,7 @@ class CompilerGUI:
         # ERRORES
         # =========================================
 
-        tab_errores = tk.Frame(tabs)
+        tab_errores = tk.Frame(tabs, bg=PANEL)
 
         tabs.add(
             tab_errores,
@@ -393,7 +497,7 @@ class CompilerGUI:
         # TABLA DE SÍMBOLOS
         # =========================================
 
-        tab_simbolos = tk.Frame(tabs)
+        tab_simbolos = tk.Frame(tabs, bg=PANEL)
 
         tabs.add(
             tab_simbolos,
@@ -427,7 +531,7 @@ class CompilerGUI:
         # ÁRBOL SINTÁCTICO
         # =========================================
 
-        tab_arbol = tk.Frame(tabs)
+        tab_arbol = tk.Frame(tabs, bg=PANEL)
 
         tabs.add(
             tab_arbol,
@@ -461,6 +565,7 @@ class CompilerGUI:
     def _on_editor_change(self, event=None):
         self.actualizar_numeros_linea()
         self.validar_en_vivo()
+        self.resaltar_sintaxis()
 
     # =================================================
     # NÚMEROS DE LÍNEA
@@ -786,14 +891,14 @@ class CompilerGUI:
 
             self.estado.config(
                 text=texto_estado,
-                fg="#D32F2F"
+                fg="#F87171"
             )
 
         else:
 
             self.estado.config(
                 text="✔ Sin errores",
-                fg="#2E7D32"
+                fg="#4ADE80"
             )
 
     def _es_identificador(self, texto):
@@ -822,6 +927,115 @@ class CompilerGUI:
             inicio,
             fin
         )
+
+    # =================================================
+    # RESALTADO DE SINTAXIS (estilo editor real)
+    # =================================================
+
+    def resaltar_sintaxis(self):
+        """
+        Recorre todo el texto y aplica colores según la categoría de
+        cada palabra: instrucciones, acciones, ingredientes (líquidos,
+        sólidos, contables), unidades, números, variables y símbolos.
+
+        Solo se colorean palabras "bien escritas" (que coinciden
+        exactamente con una palabra reservada/ingrediente conocido),
+        igual que en un editor real donde el resaltado depende de que
+        el token sea reconocido por el lenguaje.
+        """
+
+        # Quitar resaltado previo
+        for tag in (
+            "tok_instruccion", "tok_accion", "tok_liquido",
+            "tok_solido", "tok_contable", "tok_unidad",
+            "tok_numero", "tok_variable", "tok_simbolo",
+        ):
+            self.editor.tag_remove(tag, "1.0", tk.END)
+
+        texto = self.editor.get("1.0", tk.END)
+
+        lineas = texto.splitlines()
+
+        for num_linea, contenido in enumerate(lineas, start=1):
+
+            # Recorremos palabra por palabra usando offsets de columna,
+            # incluyendo separadores (espacios, ';', '=') para no
+            # perder posición.
+
+            col = 0
+            longitud = len(contenido)
+
+            while col < longitud:
+
+                c = contenido[col]
+
+                # --- Símbolos sueltos: ; = ---
+                if c in (";", "="):
+                    self._aplicar_tag("tok_simbolo", num_linea, col, col + 1)
+                    col += 1
+                    continue
+
+                # --- Espacios ---
+                if c.isspace():
+                    col += 1
+                    continue
+
+                # --- °C (símbolo especial de dos caracteres) ---
+                if contenido[col:col+2] == "°C":
+                    self._aplicar_tag("tok_unidad", num_linea, col, col + 2)
+                    col += 2
+                    continue
+
+                # --- Números ---
+                if c.isdigit():
+                    inicio = col
+                    while col < longitud and contenido[col].isdigit():
+                        col += 1
+                    self._aplicar_tag("tok_numero", num_linea, inicio, col)
+                    continue
+
+                # --- Palabras (letras, dígitos, guion bajo) ---
+                if c.isalpha() or c == "_":
+                    inicio = col
+                    while col < longitud and (contenido[col].isalnum() or contenido[col] == "_"):
+                        col += 1
+
+                    palabra = contenido[inicio:col]
+                    palabra_up = palabra.upper()
+
+                    if palabra in ("ml", "gr", "un"):
+                        tag = "tok_unidad"
+                    elif palabra_up in PALABRAS_INSTRUCCION:
+                        tag = "tok_instruccion"
+                    elif palabra_up in PALABRAS_ACCION:
+                        tag = "tok_accion"
+                    elif palabra_up in INGREDIENTES_LIQUIDOS:
+                        tag = "tok_liquido"
+                    elif palabra_up in INGREDIENTES_SOLIDOS:
+                        tag = "tok_solido"
+                    elif palabra_up in INGREDIENTES_CONTABLES:
+                        tag = "tok_contable"
+                    elif self._es_identificador(palabra):
+                        # Identificador válido pero no reconocido
+                        # (variable o ingrediente desconocido)
+                        tag = "tok_variable"
+                    else:
+                        tag = None
+
+                    if tag:
+                        self._aplicar_tag(tag, num_linea, inicio, col)
+
+                    continue
+
+                # Cualquier otro carácter (no reconocido)
+                col += 1
+
+    def _aplicar_tag(self, tag, num_linea, col_inicio, col_fin):
+
+        inicio = f"{num_linea}.{col_inicio}"
+        fin = f"{num_linea}.{col_fin}"
+
+        self.editor.tag_add(tag, inicio, fin)
 
     # =================================================
     # COMPILACIÓN
@@ -918,6 +1132,7 @@ class CompilerGUI:
 
         self.actualizar_numeros_linea()
         self.validar_en_vivo()
+        self.resaltar_sintaxis()
 
     # =================================================
 
@@ -928,6 +1143,7 @@ class CompilerGUI:
 
         self.actualizar_numeros_linea()
         self.validar_en_vivo()
+        self.resaltar_sintaxis()
 
     # =================================================
 
